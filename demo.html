@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ConsentFlow — Demo</title>
+  <style>
+    :root{
+      --bg:#0f1724; --card:#071225; --muted:#9aa4b2; --accent:#7c5cff; --accent-2:#4f46e5; --white:#ffffff; --primary:#06b6d4;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial; color:var(--white); background:radial-gradient(circle at 10% 10%, rgba(99,102,241,0.06), transparent 20%), linear-gradient(180deg,#071021 0%, #071622 100%); -webkit-font-smoothing:antialiased}
+    .wrap{max-width:900px;margin:56px auto;padding:36px}
+    .hero{display:flex;align-items:center;gap:32px}
+    .hero-left{flex:1}
+    h1{margin:0;font-size:40px;line-height:1.02;font-weight:700}
+    p.lead{margin:14px 0 22px;color:var(--muted);font-size:16px}
+    .sub{color:var(--muted);margin-top:6px;font-size:15px}
+    .tagline{margin:12px 0 0;color:rgba(255,255,255,0.78);font-size:14px}
+    .cta{display:flex;gap:12px;align-items:center}
+    .btn{padding:12px 16px;border-radius:12px;border:0;font-weight:600;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease,background .18s ease}
+    .btn.primary{padding:14px 20px;background:linear-gradient(90deg,var(--primary),#0ea5a4);color:var(--white);box-shadow:0 10px 36px rgba(6,182,212,0.10)}
+    .btn.primary:hover{transform:translateY(-3px) scale(1.03);box-shadow:0 18px 48px rgba(6,182,212,0.14)}
+    .btn.secondary{background:transparent;color:rgba(255,255,255,0.9);border:1px solid rgba(255,255,255,0.06);opacity:0.95}
+    .btn.secondary:hover{background:rgba(255,255,255,0.02);transform:translateY(-1px) scale(1.01)}
+    .btn.ghost{background:transparent;color:var(--white);border:1px solid rgba(255,255,255,0.06)}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:20px;border-radius:14px;margin-top:18px;box-shadow:0 8px 40px rgba(2,6,23,0.6)}
+    .comparison{margin-top:28px;padding:24px;border-radius:18px;background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015));border:1px solid rgba(255,255,255,0.05);box-shadow:0 20px 60px rgba(2,6,23,0.45)}
+    .comparison h2{margin:0 0 18px;font-size:28px;line-height:1.1}
+    .comparison-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+    .comparison-card{padding:18px;border-radius:16px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.025)}
+    .comparison-card h3{margin:0 0 12px;font-size:18px}
+    .comparison-card ul{margin:0;padding-left:18px;color:var(--muted);line-height:1.7}
+    .comparison-card.after{background:linear-gradient(180deg, rgba(6,182,212,0.10), rgba(14,165,164,0.04));border-color:rgba(6,182,212,0.28);box-shadow:0 0 0 1px rgba(6,182,212,0.08), 0 18px 42px rgba(6,182,212,0.12)}
+    .features{display:flex;gap:12px;margin-top:18px}
+    .feature{flex:1;background:rgba(255,255,255,0.02);padding:16px;border-radius:10px;font-size:14px;text-align:center;transition:transform .12s ease,box-shadow .12s ease}
+    .feature:hover{transform:translateY(-6px);box-shadow:0 12px 30px rgba(2,6,23,0.5)}
+    .demo-area{margin-top:24px;padding:22px;background:rgba(255,255,255,0.02);border-radius:12px;border:1px solid rgba(255,255,255,0.04);box-shadow:0 18px 50px rgba(2,6,23,0.55)}
+    .controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+    .muted{color:var(--muted);font-size:13px}
+    .consent-panel{margin-top:16px;padding:14px 16px;border-radius:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05)}
+    .consent-panel-title{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em}
+    .consent-panel p{margin:8px 0 0;font-size:13px;color:rgba(255,255,255,0.9)}
+    .consent-panel strong{font-weight:700}
+    .fade-message{margin-top:14px;min-height:20px;color:#a7f3d0;font-size:13px;opacity:0;transform:translateY(0);transition:opacity .3s ease,transform .3s ease}
+    .status-wrap{margin-top:12px}
+    .status{display:inline-flex;align-items:center;gap:8px;padding:10px 12px;border-radius:999px;background:rgba(255,255,255,0.04);font-size:13px}
+    .status-dot{width:10px;height:10px;border-radius:50%;background:#f59e0b;box-shadow:0 0 0 6px rgba(245,158,11,0.12)}
+    .status.active .status-dot{background:#22c55e;box-shadow:0 0 0 6px rgba(34,197,94,0.12)}
+    .status-message{margin-top:8px;font-size:12px;color:#d6d3d1;opacity:0;transition:opacity .3s ease}
+    footer{color:var(--muted);text-align:center;margin:48px 0 16px}
+    .label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em}
+    /* subtle container */
+    .demo-area-inner{background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));padding:14px;border-radius:10px}
+
+    /* responsive */
+    @media (max-width:920px){.hero{flex-direction:column;align-items:flex-start} h1{font-size:32px} .comparison-grid{grid-template-columns:1fr}}
+    /* fade-in animation for subtle entrance */
+    .wrap{opacity:0;transform:translateY(6px);transition:opacity .6s ease,transform .6s ease}
+    .wrap.visible{opacity:1;transform:none}
+    @media (max-width:520px){.wrap{padding:20px}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <div class="hero-left">
+        <div style="margin-bottom:10px;color:var(--muted);font-size:13px">⚡ Lightweight • No Performance Impact</div>
+        <h1>Consent Banners That Don’t Kill Your Conversions</h1>
+        <p class="lead">Lightweight, fast, and user-friendly cookie consent built for modern websites</p>
+        <div class="sub">Most cookie consent banners reduce conversions. ConsentFlow is designed to protect them.</div>
+        <div class="cta" style="margin-top:18px">
+          <button class="btn primary" id="see-action-btn">See It In Action</button>
+          <button class="btn secondary" id="acceptAllTop">Accept All</button>
+          <button class="btn ghost" id="rejectAllTop">Reject All</button>
+          <button class="btn ghost" id="openPrefsTop">Open Preferences</button>
+        </div>
+        <p class="tagline">Smart, non-intrusive consent that adapts to your users.</p>
+        <div style="margin-top:8px;color:var(--muted);font-size:13px">Takes less than 30 seconds to integrate</div>
+
+        <div class="card">
+          <div class="muted">Feature highlights</div>
+          <div class="features">
+            <div class="feature">⚡<div style="font-weight:700;margin-top:8px">Fast (&lt;50kb)</div></div>
+            <div class="feature">🎯<div style="font-weight:700;margin-top:8px">Conversion-friendly</div></div>
+            <div class="feature">🔒<div style="font-weight:700;margin-top:8px">GDPR-ready</div></div>
+          </div>
+          <div style="margin-top:10px;color:var(--muted);font-size:13px">No external dependencies. Fully self-contained SDK.</div>
+        </div>
+      </div>
+      <div style="width:360px">
+        <div class="card">
+          <div style="font-weight:700;margin-bottom:8px">Live demo</div>
+          <div class="muted">Use the controls below or interact with the banner shown by the SDK.</div>
+          <div class="controls">
+            <button class="btn primary" id="acceptAll">Accept All</button>
+            <button class="btn secondary" id="rejectAll">Reject All</button>
+            <button class="btn ghost" id="openPrefs">Open Preferences</button>
+            <button class="btn primary" id="activateAnalytics">Activate Analytics</button>
+          </div>
+          <div class="status-wrap" id="analytics-status-container">
+            <div class="status" id="analyticsStatus" aria-live="polite">
+              <span class="status-dot" aria-hidden="true"></span>
+              <span id="analyticsStatusText">Analytics Status: Blocked</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <section class="comparison" id="comparison">
+      <h2>Why ConsentFlow?</h2>
+      <div class="comparison-grid">
+        <div class="comparison-card before">
+          <h3>❌ Traditional Banners</h3>
+          <ul>
+            <li>Repeated popups on every visit</li>
+            <li>Interrupts user experience</li>
+            <li>Confusing consent options</li>
+            <li>Hurts conversions</li>
+          </ul>
+        </div>
+        <div class="comparison-card after">
+          <h3>✅ ConsentFlow</h3>
+          <ul>
+            <li>Smart behavior based on user history</li>
+            <li>No repeated interruptions</li>
+            <li>Clear and simple controls</li>
+            <li>Designed to protect conversions</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <div class="demo-area card" id="live-demo">
+      <div class="label">Live Consent Demo</div>
+      <div style="font-weight:700;margin-top:6px">See ConsentFlow in action</div>
+      <p class="muted">This page demonstrates blocked scripts and how ConsentFlow activates them when consent is given.</p>
+
+      <div class="demo-area-inner">
+        <div class="consent-panel" id="consent-status">
+          <div class="consent-panel-title">Consent Status</div>
+          <p>Necessary: <strong>Always Active</strong></p>
+          <p>Analytics: <strong id="status-analytics">Blocked</strong></p>
+          <p>Marketing: <strong id="status-marketing">Blocked</strong></p>
+        </div>
+        <div id="demo-message" class="fade-message" aria-live="polite"></div>
+
+        <!-- Inline blocked analytics script -->
+        <script type="text/plain" data-consent="analytics">
+          console.info('Blocked inline analytics executed — should only run after activation');
+        </script>
+
+        <!-- External blocked script example (will attempt to load when activated) -->
+        <script type="text/plain" data-consent="analytics" src="https://example.com/fake-analytics.js"></script>
+
+        <p class="muted" style="margin-top:12px">Open the browser console to observe activation logs.</p>
+        <p class="muted" style="margin-top:10px;font-weight:600">No cookies are set until you accept.</p>
+      </div>
+    </div>
+
+    <footer>
+      ConsentFlow — Lightweight consent solution
+    </footer>
+  </div>
+
+  <!-- Queue init before loading SDK so banner appears automatically -->
+  <script>
+    window.ConsentFlowQ = window.ConsentFlowQ || [];
+    window.ConsentFlowQ.push(['init', { debug: false, cookieName: 'cf_demo' }]);
+  </script>
+
+  <!-- Load the SDK UMD bundle (generate with `npm run build`) -->
+  <script src="dist/consentflow.min.js"></script>
+
+  <script>
+    function safeCall(name, ...args){ if (window.ConsentFlow && typeof window.ConsentFlow[name] === 'function') return window.ConsentFlow[name](...args); }
+    var analyticsActivated = false;
+    var analyticsStatus = document.getElementById('analyticsStatus');
+    var analyticsStatusText = document.getElementById('analyticsStatusText');
+    var statusAnalytics = document.getElementById('status-analytics');
+    var statusMarketing = document.getElementById('status-marketing');
+    var demoMessage = document.getElementById('demo-message');
+    var analyticsMessageTimeout = null;
+    var demoMessageTimeout = null;
+
+    function showAnalyticsMessage(text) {
+      var msg = document.getElementById('analytics-message');
+
+      if (!msg) {
+        msg = document.createElement('div');
+        msg.id = 'analytics-message';
+        msg.className = 'status-message';
+
+        var container = document.getElementById('analytics-status-container');
+        if (container) {
+          container.appendChild(msg);
+        }
+      }
+
+      if (!msg) return;
+
+      if (analyticsMessageTimeout) {
+        clearTimeout(analyticsMessageTimeout);
+        analyticsMessageTimeout = null;
+      }
+
+      msg.textContent = text;
+      msg.style.opacity = '1';
+
+      analyticsMessageTimeout = setTimeout(function () {
+        msg.style.opacity = '0';
+        analyticsMessageTimeout = null;
+      }, 3000);
+    }
+
+    function showActionMessage(text) {
+      if (!demoMessage) return;
+
+      if (demoMessageTimeout) {
+        clearTimeout(demoMessageTimeout);
+        demoMessageTimeout = null;
+      }
+
+      demoMessage.innerText = text;
+      demoMessage.style.opacity = '1';
+      demoMessage.style.transform = 'translateY(-10px)';
+
+      demoMessageTimeout = setTimeout(function () {
+        demoMessage.style.opacity = '0';
+        demoMessage.style.transform = 'translateY(0)';
+        demoMessageTimeout = null;
+      }, 2000);
+    }
+
+    function updateAnalyticsStatus() {
+      if (!analyticsStatus || !analyticsStatusText) return;
+
+      if (!safeCall('hasConsent', 'analytics')) {
+        analyticsActivated = false;
+        analyticsStatus.classList.remove('active');
+        analyticsStatusText.textContent = 'Analytics Status: Blocked';
+        return;
+      }
+
+      if (analyticsActivated) {
+        analyticsStatus.classList.add('active');
+        analyticsStatusText.textContent = 'Analytics Status: Active';
+        return;
+      }
+
+      analyticsStatus.classList.remove('active');
+      analyticsStatusText.textContent = 'Analytics Status: Ready to Activate';
+    }
+
+    function updateConsentStatusUI(consentState) {
+      var categories = consentState && consentState.categories ? consentState.categories : {};
+      if (statusAnalytics) {
+        if (!categories.analytics) {
+          statusAnalytics.innerText = 'Blocked';
+        } else if (analyticsActivated) {
+          statusAnalytics.innerText = 'Active';
+        } else {
+          statusAnalytics.innerText = 'Ready to Activate';
+        }
+      }
+
+      if (statusMarketing) {
+        statusMarketing.innerText = categories.marketing ? 'Allowed' : 'Blocked';
+      }
+    }
+
+    function runAnalyticsScript() {
+      safeCall('activateScripts', 'analytics');
+      console.log('Demo analytics script executed');
+    }
+
+    function handleActivateAnalytics() {
+      if (!safeCall('hasConsent', 'analytics')) {
+        console.warn('Analytics blocked (no consent)');
+        updateAnalyticsStatus();
+        return;
+      }
+
+      if (analyticsActivated) {
+        console.log('Analytics already active');
+        updateAnalyticsStatus();
+        return;
+      }
+
+      analyticsActivated = true;
+      console.log('Analytics activated');
+      runAnalyticsScript();
+      updateAnalyticsStatus();
+      updateConsentStatusUI(safeCall('getConsent'));
+    }
+
+    // demo controls
+    document.getElementById('acceptAll').addEventListener('click', () => safeCall('acceptAll'));
+    document.getElementById('rejectAll').addEventListener('click', () => safeCall('rejectAll'));
+    document.getElementById('openPrefs').addEventListener('click', () => safeCall('openPreferences'));
+    document.getElementById('activateAnalytics').addEventListener('click', handleActivateAnalytics);
+
+    // top controls
+    document.getElementById('acceptAllTop').addEventListener('click', () => safeCall('acceptAll'));
+    document.getElementById('rejectAllTop').addEventListener('click', () => safeCall('rejectAll'));
+    document.getElementById('openPrefsTop').addEventListener('click', () => safeCall('openPreferences'));
+
+    // Try Demo scroll
+    var tryBtn = document.getElementById('see-action-btn');
+    if (tryBtn) tryBtn.addEventListener('click', function (){
+      document.getElementById('live-demo').scrollIntoView({ behavior: 'smooth' });
+    });
+
+    // show a small console message when ConsentFlow emits changes (if available)
+    if (window.ConsentFlow && typeof window.ConsentFlow.on === 'function') {
+      window.ConsentFlow.on('consent:change', (consent) => {
+        console.log('Consent changed', consent);
+        if (!safeCall('hasConsent', 'analytics')) {
+          analyticsActivated = false;
+          console.log('Analytics disabled for future events');
+          showAnalyticsMessage('Tracking disabled for future events');
+        }
+        updateAnalyticsStatus();
+        updateConsentStatusUI(consent && consent.newConsent ? consent.newConsent : safeCall('getConsent'));
+
+        if (consent && consent.method === 'acceptAll') {
+          showActionMessage('Consent saved successfully');
+        } else if (consent && consent.method === 'rejectAll') {
+          showActionMessage('Consent rejected');
+        } else if (consent && consent.method === 'savePreferences') {
+          showActionMessage('Preferences updated');
+        }
+      });
+    }
+    // apply fade-in
+    window.addEventListener('load', function(){
+      var w = document.querySelector('.wrap');
+      if (w) setTimeout(()=>w.classList.add('visible'), 80);
+      updateAnalyticsStatus();
+      updateConsentStatusUI(safeCall('getConsent'));
+    });
+  </script>
+</body>
+</html>

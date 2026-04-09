@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ConsentFlow — Test</title>
+</head>
+<body>
+
+<h1>ConsentFlow SDK Test</h1>
+
+<!-- Queue init BEFORE SDK loads -->
+<script>
+  window.ConsentFlowQ = window.ConsentFlowQ || [];
+  window.ConsentFlowQ.push(['init', {
+    revision: "v1",
+    debug: true,
+    onConsentChange: (c) => console.log("Consent:", c)
+  }]);
+</script>
+
+<!-- Blocked script -->
+<script type="text/plain" data-consent="analytics">
+  console.log("🔥 Analytics script executed!");
+</script>
+
+<!-- SDK -->
+<script src="./dist/consentflow.min.js"></script>
+
+<!-- Buttons for manual testing -->
+<div style="margin-top:20px;">
+  <button id="openPreferencesBtn">Open Preferences</button>
+  <button id="acceptAllBtn">Accept All</button>
+  <button id="activateAnalyticsBtn">Activate Analytics</button>
+</div>
+
+<script>
+  document.getElementById('openPreferencesBtn').addEventListener('click', function () {
+    if (window.ConsentFlow && typeof window.ConsentFlow.openPreferences === 'function') {
+      window.ConsentFlow.openPreferences();
+    }
+  });
+
+  document.getElementById('acceptAllBtn').addEventListener('click', function () {
+    if (window.ConsentFlow && typeof window.ConsentFlow.acceptAll === 'function') {
+      window.ConsentFlow.acceptAll();
+    }
+  });
+
+  document.getElementById('activateAnalyticsBtn').addEventListener('click', function () {
+    if (window.ConsentFlow && typeof window.ConsentFlow.activateScripts === 'function') {
+      window.ConsentFlow.activateScripts('analytics');
+    }
+  });
+</script>
+
+</body>
+</html>
