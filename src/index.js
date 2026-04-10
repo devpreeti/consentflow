@@ -46,16 +46,35 @@ function initWrapper(...args) {
 }
 
 const api = {
+  // Initialize ConsentFlow. Safe to call with no options.
   init: initWrapper,
-  open: (...a) => safeCall('open', ...a),
-  openPreferences: (...a) => safeCall('openPreferences', ...a),
-  close: (...a) => safeCall('close', ...a),
+
+  // Grant all supported optional consent categories.
   acceptAll: (...a) => safeCall('acceptAll', ...a),
+
+  // Reject all optional categories while keeping necessary enabled.
   rejectAll: (...a) => safeCall('rejectAll', ...a),
+
+  // Save selected preferences, e.g. { analytics: true, marketing: false }.
   savePreferences: (...a) => safeCall('savePreferences', ...a),
+
+  // Read the current public consent object.
   getConsent: (...a) => safeCall('getConsent', ...a),
+
+  // Check whether a category is currently allowed.
   hasConsent: (...a) => safeCall('hasConsent', ...a),
+
+  // Clear persisted consent and return to first-time state.
   reset: (...a) => safeCall('reset', ...a),
+
+  // Open the preferences modal.
+  openPreferences: (...a) => safeCall('openPreferences', ...a),
+
+  // Deprecated alias kept for backward compatibility. Use openPreferences().
+  open: (...a) => safeCall('open', ...a),
+
+  // Advanced lifecycle/events helpers.
+  close: (...a) => safeCall('close', ...a),
   destroy: (...a) => safeCall('destroy', ...a),
   on: (...a) => safeCall('on', ...a),
   off: (...a) => safeCall('off', ...a)

@@ -4,9 +4,11 @@
 
 const PROCESSED_ATTR = 'data-cf-processed';
 const EXECUTED_ATTR = 'data-cf-executed';
+const SCRIPT_ID_ATTR = 'data-cf-script-id';
 
 let debug = false;
-const activatedCategories = new Set();
+const executedScripts = new Set();
+let scriptId = 0;
 
 function log(...args) { if (debug && typeof console !== 'undefined') console.log('[ConsentFlow activator]', ...args); }
 
@@ -25,15 +27,28 @@ function copyAttributes(srcEl, destEl) {
   });
 }
 
+function getScriptId(el) {
+  if (!el || !el.getAttribute) return '';
+  let id = el.getAttribute(SCRIPT_ID_ATTR);
+  if (!id) {
+    id = `cf-script-${Date.now()}-${++scriptId}`;
+    try { el.setAttribute(SCRIPT_ID_ATTR, id); } catch (e) { /* ignore */ }
+  }
+  return id;
+}
+
 function activateScriptElement(el) {
   if (!el) return false;
   if (el.getAttribute && el.getAttribute(PROCESSED_ATTR) === 'true') return false;
+  const id = getScriptId(el);
+  if (id && executedScripts.has(id)) return false;
   const parent = el.parentNode;
   if (!parent) return false;
 
   try {
     const src = el.getAttribute('src');
     const newScript = document.createElement('script');
+    try { el.setAttribute(PROCESSED_ATTR, 'true'); } catch (e) { /* ignore */ }
     if (src) {
       newScript.src = src;
     } else {
@@ -42,6 +57,8 @@ function activateScriptElement(el) {
     }
     copyAttributes(el, newScript);
     newScript.setAttribute(EXECUTED_ATTR, 'true');
+    if (id) newScript.setAttribute(SCRIPT_ID_ATTR, id);
+    if (id) executedScripts.add(id);
     // Replace in place to preserve execution order
     parent.replaceChild(newScript, el);
     log('activated script', src || '(inline)');
@@ -63,8 +80,7 @@ export function setDebug(flag) { debug = Boolean(flag); }
 // Activate scripts for categories if full consent is satisfied
 export function activateScriptsForCategories(categories = [], consent = null) {
   if (!Array.isArray(categories)) categories = [categories];
-  // filter out already activated categories
-  const toProcess = categories.filter(c => !activatedCategories.has(c));
+  const toProcess = categories.filter(Boolean);
   if (!toProcess.length) return 0;
   let activatedCount = 0;
   const scripts = findBlockedScripts();
@@ -73,6 +89,8 @@ export function activateScriptsForCategories(categories = [], consent = null) {
     try {
       if (!el.getAttribute) return;
       if (el.getAttribute(PROCESSED_ATTR) === 'true') return;
+      const scriptKey = getScriptId(el);
+      if (scriptKey && executedScripts.has(scriptKey)) return;
       const required = parseCategoriesAttr(el.getAttribute('data-consent'));
       if (!required.length) return;
       // check if all required categories are consented (use consent object if provided)
@@ -90,8 +108,6 @@ export function activateScriptsForCategories(categories = [], consent = null) {
       }
     } catch (e) { /* ignore per-script */ }
   });
-  // mark categories as activated to avoid re-activation
-  toProcess.forEach(c => activatedCategories.add(c));
   return activatedCount;
 }
 
@@ -105,5 +121,4 @@ export function activateAllConsented(consent) {
   return activateScriptsForCategories(cats, consent);
 }
 
-export function resetActivatedCategories() { activatedCategories.clear(); }
-
+export function resetActivatedCategories() { executedScripts.clear(); }

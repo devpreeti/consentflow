@@ -32,6 +32,8 @@
     .comparison-card h3{margin:0 0 12px;font-size:18px}
     .comparison-card ul{margin:0;padding-left:18px;color:var(--muted);line-height:1.7}
     .comparison-card.after{background:linear-gradient(180deg, rgba(6,182,212,0.10), rgba(14,165,164,0.04));border-color:rgba(6,182,212,0.28);box-shadow:0 0 0 1px rgba(6,182,212,0.08), 0 18px 42px rgba(6,182,212,0.12)}
+    .install-snippet{margin-top:18px;padding:16px;border-radius:14px;background:rgba(2,6,23,0.55);border:1px solid rgba(255,255,255,0.07)}
+    .install-snippet pre{margin:10px 0 0;white-space:pre-wrap;color:#d1fae5;font-size:12px;line-height:1.6}
     .features{display:flex;gap:12px;margin-top:18px}
     .feature{flex:1;background:rgba(255,255,255,0.02);padding:16px;border-radius:10px;font-size:14px;text-align:center;transition:transform .12s ease,box-shadow .12s ease}
     .feature:hover{transform:translateY(-6px);box-shadow:0 12px 30px rgba(2,6,23,0.5)}
@@ -42,6 +44,7 @@
     .consent-panel-title{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em}
     .consent-panel p{margin:8px 0 0;font-size:13px;color:rgba(255,255,255,0.9)}
     .consent-panel strong{font-weight:700}
+    .consent-json{margin:12px 0 0;padding:12px;border-radius:10px;background:rgba(2,6,23,0.6);color:#d1fae5;font-size:12px;line-height:1.55;white-space:pre-wrap;overflow:auto}
     .fade-message{margin-top:14px;min-height:20px;color:#a7f3d0;font-size:13px;opacity:0;transform:translateY(0);transition:opacity .3s ease,transform .3s ease}
     .status-wrap{margin-top:12px}
     .status{display:inline-flex;align-items:center;gap:8px;padding:10px 12px;border-radius:999px;background:rgba(255,255,255,0.04);font-size:13px}
@@ -66,7 +69,7 @@
     <div class="hero">
       <div class="hero-left">
         <div style="margin-bottom:10px;color:var(--muted);font-size:13px">⚡ Lightweight • No Performance Impact</div>
-        <h1>Consent Banners That Don’t Kill Your Conversions</h1>
+        <h1>Consent banner that doesn’t kill conversions</h1>
         <p class="lead">Lightweight, fast, and user-friendly cookie consent built for modern websites</p>
         <div class="sub">Most cookie consent banners reduce conversions. ConsentFlow is designed to protect them.</div>
         <div class="cta" style="margin-top:18px">
@@ -87,6 +90,14 @@
           </div>
           <div style="margin-top:10px;color:var(--muted);font-size:13px">No external dependencies. Fully self-contained SDK.</div>
         </div>
+
+        <div class="install-snippet">
+          <div class="label">Install</div>
+          <pre>&lt;script src="https://devpreeti.github.io/consentflow/consentflow.min.js"&gt;&lt;/script&gt;
+&lt;script&gt;
+  ConsentFlow.init();
+&lt;/script&gt;</pre>
+        </div>
       </div>
       <div style="width:360px">
         <div class="card">
@@ -97,6 +108,7 @@
             <button class="btn secondary" id="rejectAll">Reject All</button>
             <button class="btn ghost" id="openPrefs">Open Preferences</button>
             <button class="btn primary" id="activateAnalytics">Activate Analytics</button>
+            <button class="btn ghost" id="resetConsent">Reset</button>
           </div>
           <div class="status-wrap" id="analytics-status-container">
             <div class="status" id="analyticsStatus" aria-live="polite">
@@ -143,12 +155,19 @@
           <p>Necessary: <strong>Always Active</strong></p>
           <p>Analytics: <strong id="status-analytics">Blocked</strong></p>
           <p>Marketing: <strong id="status-marketing">Blocked</strong></p>
+          <pre class="consent-json" id="consent-json">{}</pre>
         </div>
+        <p class="muted" style="margin-top:12px">
+          Script state:
+          <strong id="script-state">Analytics Blocked</strong>
+        </p>
         <div id="demo-message" class="fade-message" aria-live="polite"></div>
 
         <!-- Inline blocked analytics script -->
         <script type="text/plain" data-consent="analytics">
-          console.info('Blocked inline analytics executed — should only run after activation');
+          window.__consentflowDemoAnalyticsActive = true;
+          document.dispatchEvent(new CustomEvent('consentflow:demo-analytics-active'));
+          console.info('Blocked inline analytics executed - should only run after activation');
         </script>
 
         <!-- External blocked script example (will attempt to load when activated) -->
@@ -167,7 +186,22 @@
   <!-- Queue init before loading SDK so banner appears automatically -->
   <script>
     window.ConsentFlowQ = window.ConsentFlowQ || [];
-    window.ConsentFlowQ.push(['init', { debug: false, cookieName: 'cf_demo' }]);
+    window.ConsentFlowQ.push(['init', {
+      debug: false,
+      cookieName: 'cf_demo',
+      onInit: function (consent) {
+        console.log('Hook onInit', consent);
+      },
+      onAccept: function (consent) {
+        console.log('Hook onAccept', consent);
+      },
+      onReject: function (consent) {
+        console.log('Hook onReject', consent);
+      },
+      onChange: function (consent) {
+        console.log('Hook onChange', consent);
+      }
+    }]);
   </script>
 
   <!-- Load the SDK UMD bundle (generate with `npm run build`) -->
@@ -181,6 +215,8 @@
     var analyticsStatusText = document.getElementById('analyticsStatusText');
     var statusAnalytics = document.getElementById('status-analytics');
     var statusMarketing = document.getElementById('status-marketing');
+    var scriptState = document.getElementById('script-state');
+    var consentJson = document.getElementById('consent-json');
     var demoMessage = document.getElementById('demo-message');
     var analyticsMessageTimeout = null;
     var demoMessageTimeout = null;
@@ -237,25 +273,32 @@
     function updateAnalyticsStatus() {
       if (!analyticsStatus || !analyticsStatusText) return;
 
+      if (window.__consentflowDemoAnalyticsActive && safeCall('hasConsent', 'analytics')) {
+        analyticsActivated = true;
+      }
+
       if (!safeCall('hasConsent', 'analytics')) {
         analyticsActivated = false;
         analyticsStatus.classList.remove('active');
         analyticsStatusText.textContent = 'Analytics Status: Blocked';
+        if (scriptState) scriptState.innerText = 'Analytics Blocked';
         return;
       }
 
       if (analyticsActivated) {
         analyticsStatus.classList.add('active');
         analyticsStatusText.textContent = 'Analytics Status: Active';
+        if (scriptState) scriptState.innerText = 'Analytics Active';
         return;
       }
 
       analyticsStatus.classList.remove('active');
       analyticsStatusText.textContent = 'Analytics Status: Ready to Activate';
+      if (scriptState) scriptState.innerText = 'Analytics Blocked';
     }
 
     function updateConsentStatusUI(consentState) {
-      var categories = consentState && consentState.categories ? consentState.categories : {};
+      var categories = consentState && consentState.categories ? consentState.categories : consentState || {};
       if (statusAnalytics) {
         if (!categories.analytics) {
           statusAnalytics.innerText = 'Blocked';
@@ -269,11 +312,14 @@
       if (statusMarketing) {
         statusMarketing.innerText = categories.marketing ? 'Allowed' : 'Blocked';
       }
+
+      if (consentJson) {
+        consentJson.innerText = JSON.stringify(consentState || {}, null, 2);
+      }
     }
 
     function runAnalyticsScript() {
-      safeCall('activateScripts', 'analytics');
-      console.log('Demo analytics script executed');
+      console.log('Analytics activation is handled automatically by ConsentFlow');
     }
 
     function handleActivateAnalytics() {
@@ -296,11 +342,26 @@
       updateConsentStatusUI(safeCall('getConsent'));
     }
 
+    function handleResetConsent() {
+      analyticsActivated = false;
+      safeCall('reset');
+      updateAnalyticsStatus();
+      updateConsentStatusUI(safeCall('getConsent'));
+      showActionMessage('Demo reset');
+    }
+
     // demo controls
     document.getElementById('acceptAll').addEventListener('click', () => safeCall('acceptAll'));
     document.getElementById('rejectAll').addEventListener('click', () => safeCall('rejectAll'));
     document.getElementById('openPrefs').addEventListener('click', () => safeCall('openPreferences'));
     document.getElementById('activateAnalytics').addEventListener('click', handleActivateAnalytics);
+    document.getElementById('resetConsent').addEventListener('click', handleResetConsent);
+
+    document.addEventListener('consentflow:demo-analytics-active', function () {
+      analyticsActivated = true;
+      updateAnalyticsStatus();
+      updateConsentStatusUI(safeCall('getConsent'));
+    });
 
     // top controls
     document.getElementById('acceptAllTop').addEventListener('click', () => safeCall('acceptAll'));

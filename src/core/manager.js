@@ -2,7 +2,7 @@ import createEmitter from '../lib/events.js';
 import * as storage from '../adapter/storage.js';
 import { encodeCookie, decodeCookie, writeCookie, readCookie, removeCookie, CATEGORIES } from '../adapter/cookie.js';
 import createWidget from '../ui/widget.js';
-import { activateScriptsForCategories, activateAllConsented } from '../lib/activator.js';
+import { activateScriptsForCategories } from '../lib/activator.js';
 
 const DEFAULTS = {
   locale: 'en',
@@ -17,6 +17,10 @@ const DEFAULTS = {
   position: 'bottom',
   labels: {},
   translations: {},
+  onInit: null,
+  onAccept: null,
+  onReject: null,
+  onChange: null,
   onConsentChange: null
 };
 const USER_TYPE_KEY = 'consentflow_user_type';
@@ -36,6 +40,24 @@ function getDefaultConsent(cfg) {
     locale: (cfg && cfg.locale) || DEFAULTS.locale,
     revision: (cfg && cfg.revision) || DEFAULTS.revision,
     timestamp: new Date().toISOString()
+  };
+}
+
+function resolveStatus(c) {
+  const categories = c && c.categories ? c.categories : {};
+  if (categories.analytics && categories.marketing) return 'accepted';
+  if (!categories.analytics && !categories.marketing) return 'rejected';
+  return 'custom';
+}
+
+function toPublicConsent(c) {
+  const categories = ensureCategories(c && c.categories);
+  return {
+    necessary: true,
+    analytics: Boolean(categories.analytics),
+    marketing: Boolean(categories.marketing),
+    status: resolveStatus({ categories }),
+    updatedAt: c && c.timestamp ? c.timestamp : new Date().toISOString()
   };
 }
 
@@ -71,6 +93,17 @@ export default function createManager() {
     return 'returning';
   }
 
+  function getAllowedOptionalCategories() {
+    if (!consent || !consent.categories) return [];
+    return CATEGORIES.filter(k => k !== 'necessary' && consent.categories[k] === true);
+  }
+
+  function activateAllowedScripts() {
+    const allowedCategories = getAllowedOptionalCategories();
+    if (!allowedCategories.length) return 0;
+    return activateScriptsForCategories(allowedCategories, consent);
+  }
+
   // Persist storage writes (localStorage immediate, cookie debounced).
   // This function writes storage but does NOT emit events.
   function persistNow() {
@@ -87,27 +120,35 @@ export default function createManager() {
   }
 
   function notifyChange(oldC, method = 'save', source = 'api') {
-    const payload = { oldConsent: oldC, newConsent: consent, source, method, timestamp: new Date().toISOString() };
+    const publicConsent = toPublicConsent(consent);
+    const payload = {
+      oldConsent: toPublicConsent(oldC),
+      newConsent: publicConsent,
+      source,
+      method,
+      timestamp: new Date().toISOString()
+    };
     try { emitter.emit('consent:change', payload); } catch (e) { console.error(e); }
     if (typeof config.onConsentChange === 'function') {
       try { config.onConsentChange(payload); } catch (e) { console.error(e); }
     }
+    if (typeof config.onChange === 'function') {
+      try { config.onChange(publicConsent); } catch (e) { console.error(e); }
+    }
+    if (method === 'acceptAll' && typeof config.onAccept === 'function') {
+      try { config.onAccept(publicConsent); } catch (e) { console.error(e); }
+    }
+    if (method === 'rejectAll' && typeof config.onReject === 'function') {
+      try { config.onReject(publicConsent); } catch (e) { console.error(e); }
+    }
     // After notifying, process any activation queue to start eligible scripts
     try { processActivationQueue(); } catch (e) { /* ignore */ }
-    // Activate any scripts for categories that were newly granted
+    // Consent actions activate all currently allowed optional categories.
+    // The activator tracks individual scripts, so repeat calls are safe and
+    // also handle scripts that were injected after the first consent action.
     try {
-      if (oldC && oldC.categories) {
-        const newlyGranted = [];
-        Object.keys(consent.categories).forEach(k => {
-          if (k === 'necessary') return;
-          const was = Boolean(oldC.categories[k]);
-          const now = Boolean(consent.categories[k]);
-          if (!was && now) newlyGranted.push(k);
-        });
-        if (newlyGranted.length) activateScriptsForCategories(newlyGranted, consent);
-      } else {
-        // no old consent: activate all currently consented (except necessary)
-        activateAllConsented(consent);
+      if (method === 'acceptAll' || method === 'savePreferences') {
+        activateAllowedScripts();
       }
     } catch (e) { console.error('ConsentFlow activation error', e); }
   }
@@ -187,7 +228,11 @@ export default function createManager() {
       getConsent: () => api.getConsent(),
       getUserType: () => userType
     }, config);
-    emitter.emit('consent:ready', { consent });
+    const initialConsent = toPublicConsent(consent);
+    emitter.emit('consent:ready', { consent: initialConsent });
+    if (typeof config.onInit === 'function') {
+      try { config.onInit(initialConsent); } catch (e) { console.error(e); }
+    }
 
     // Show the banner only when it adds value:
     // first-time users need the full prompt, rejected users get a softer re-entry,
@@ -210,12 +255,18 @@ export default function createManager() {
 
     // Process any queued activations (some may be eligible immediately)
     try { processActivationQueue(); } catch (e) {}
+    // Activate blocked script tags for stored consent on returning visits.
+    try { activateAllowedScripts(); } catch (e) { console.error('ConsentFlow activation error', e); }
 
-    return Promise.resolve(consent);
+    return Promise.resolve(toPublicConsent(consent));
   }
 
+  // Opens the preferences modal for granular category controls.
   function openPreferences() { widget && widget.open(); }
+
+  // Deprecated alias kept for existing integrations. Use openPreferences().
   function open() { openPreferences(); }
+
   function close() { widget && widget.close(); }
   function showBanner() { widget && widget.showBanner(); }
 
@@ -226,21 +277,24 @@ export default function createManager() {
     writeUserType(resolveUserType(true));
     persistNow();
     notifyChange(old, method, 'api');
-    return consent;
+    return toPublicConsent(consent);
   }
 
+  // Grants all supported consent categories.
   function acceptAll() {
     const all = {};
     CATEGORIES.forEach(k => { all[k] = (k === 'necessary') ? true : true; });
     return _updateCategories(all, 'acceptAll');
   }
 
+  // Rejects all optional categories while keeping necessary enabled.
   function rejectAll() {
     const all = {};
     CATEGORIES.forEach(k => { all[k] = (k === 'necessary') ? true : false; });
     return _updateCategories(all, 'rejectAll');
   }
 
+  // Saves a partial preferences object, e.g. { analytics: true, marketing: false }.
   function savePreferences(categories) {
     // validate keys but preserve categories omitted from partial updates
     const allowed = {};
@@ -253,13 +307,18 @@ export default function createManager() {
     return _updateCategories(allowed, 'savePreferences');
   }
 
-  function getConsent() { return consent; }
+  // Returns the public flat consent object.
+  function getConsent() { return toPublicConsent(consent); }
 
+  // Checks whether a category is currently allowed.
   function hasConsent(category) {
+    if (category === 'necessary') return true;
+    if (!CATEGORIES.includes(category)) return false;
     if (!consent) return false;
     return Boolean(consent.categories && consent.categories[category]);
   }
 
+  // Clears stored consent and returns the SDK to first-time state.
   function reset() {
     const old = JSON.parse(JSON.stringify(consent));
     consent = {
@@ -274,7 +333,7 @@ export default function createManager() {
     removeCookie(config.cookieName, { path: '/' });
     // After clearing storage and cookie, emit change so integrators can react
     notifyChange(old, 'reset', 'api');
-    return consent;
+    return toPublicConsent(consent);
   }
 
   function destroy() {
@@ -285,22 +344,32 @@ export default function createManager() {
   }
 
   const api = {
+    // Initializes ConsentFlow. Safe to call without options.
     init,
-    open,
+    // Grants all optional consent categories.
+    acceptAll,
+    // Rejects all optional consent categories.
+    rejectAll,
+    // Saves selected category preferences.
+    savePreferences,
+    // Reads the current public consent object.
+    getConsent,
+    // Checks whether one category is allowed.
+    hasConsent,
+    // Clears stored consent and cookies.
+    reset,
+    // Opens the preferences modal.
     openPreferences,
+
+    // Backward-compatible aliases / advanced helpers.
+    open,
     close,
     showBanner,
-    acceptAll,
-    rejectAll,
-    savePreferences,
-    getConsent,
-    hasConsent,
-    reset,
     destroy,
     on: emitter.on,
     off: emitter.off,
-    // expose activator for manual use
-    activateScripts: (cat) => activateScriptsForCategories(Array.isArray(cat) ? cat : [cat])
+    // Optional manual activation helper; still respects current consent state.
+    activateScripts: (cat) => activateScriptsForCategories(Array.isArray(cat) ? cat : [cat], consent)
   };
 
   // expose a helper for queued activations: scripts can push {categories, fn} into window.__CF_ACTIVATIONS

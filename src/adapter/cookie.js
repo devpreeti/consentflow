@@ -1,11 +1,11 @@
 // Cookie adapter using bitmask encoding for categories
-const CATEGORIES = Object.freeze(['necessary', 'analytics', 'preferences', 'marketing']);
+const CATEGORIES = Object.freeze(['necessary', 'analytics', 'marketing']);
 
-// Explicit index mapping for stability
+// Explicit index mapping for stability. The removed "preferences" bit is kept
+// reserved so existing cookies using the old bitmask still decode safely.
 export const CATEGORY_INDEX = Object.freeze({
   necessary: 0,
   analytics: 1,
-  preferences: 2,
   marketing: 3
 });
 
@@ -51,8 +51,8 @@ export function decodeConsent(value) {
     const maskStr = (parts[0] || '').trim();
     if (!maskStr) return null;
     const mask = parseInt(maskStr, 10);
-    // validate numeric mask and range (4 categories -> valid 0..15)
-    const maxMask = (1 << Object.keys(CATEGORY_INDEX).length) - 1;
+    // validate numeric mask and range. Keep accepting old bit 2 values.
+    const maxMask = (1 << 4) - 1;
     if (Number.isNaN(mask) || mask < 0 || mask > maxMask) return null;
     const revPart = parts[1];
     const revision = (revPart && String(revPart).startsWith('r') && revPart.length > 1) ? String(revPart).slice(1) : null;
