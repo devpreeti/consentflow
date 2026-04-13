@@ -204,9 +204,8 @@
     }]);
   </script>
 
-  <!-- Load the SDK UMD bundle (generate with `npm run build`) -->
-   <script src="https://devpreeti.github.io/consentflow/consentflow.min.js"></script>
-  <!-- <script src="dist/consentflow.min.js"></script> -->
+  <!-- Load the local SDK bundle built from the current workspace -->
+  <script src="dist/consentflow.min.js"></script>
 
   <script>
     function safeCall(name, ...args){ if (window.ConsentFlow && typeof window.ConsentFlow[name] === 'function') return window.ConsentFlow[name](...args); }

@@ -1,6 +1,6 @@
 import createEmitter from '../lib/events.js';
 import * as storage from '../adapter/storage.js';
-import { encodeCookie, decodeCookie, writeCookie, readCookie, removeCookie, CATEGORIES } from '../adapter/cookie.js';
+import { encodeCookie, writeCookie, removeCookie, CATEGORIES } from '../adapter/cookie.js';
 import createWidget from '../ui/widget.js';
 import { activateScriptsForCategories } from '../lib/activator.js';
 
@@ -35,6 +35,7 @@ function ensureCategories(obj) {
 function getDefaultConsent(cfg) {
   return {
     version: 1,
+    status: 'none',
     categories: ensureCategories({}),
     locale: (cfg && cfg.locale) || DEFAULTS.locale,
     revision: (cfg && cfg.revision) || DEFAULTS.revision,
@@ -42,7 +43,13 @@ function getDefaultConsent(cfg) {
   };
 }
 
+function resolveStoredStatus(c) {
+  const categories = c && c.categories ? c.categories : {};
+  return categories.analytics || categories.marketing ? 'accepted' : 'rejected';
+}
+
 function resolveStatus(c) {
+  if (c && c.status === 'none') return 'none';
   const categories = c && c.categories ? c.categories : {};
   if (categories.analytics && categories.marketing) return 'accepted';
   if (!categories.analytics && !categories.marketing) return 'rejected';
@@ -77,14 +84,28 @@ export default function createManager() {
     return null;
   }
 
+  function hydrateStoredConsent(data) {
+    if (!data || !data.categories) return null;
+    return {
+      ...data,
+      status: data.status === 'accepted' || data.status === 'rejected' ? data.status : resolveStoredStatus(data),
+      categories: ensureCategories(data.categories)
+    };
+  }
+
   function writeUserType(type) {
     userType = type;
   }
 
-  function resolveUserType(hasStoredConsent) {
-    if (!hasStoredConsent) return 'first-time';
-    if (consent && consent.categories && consent.categories.analytics === false) return 'rejected';
-    return 'returning';
+  function resolveConsentState() {
+    if (!consent || consent.status === 'none') return 'none';
+    return consent.status === 'rejected' ? 'rejected' : 'accepted';
+  }
+
+  function resolveUserType(state) {
+    if (state === 'rejected') return 'rejected';
+    if (state === 'accepted') return 'returning';
+    return 'first-time';
   }
 
   function getAllowedOptionalCategories() {
@@ -102,11 +123,16 @@ export default function createManager() {
   // This function writes storage but does NOT emit events.
   function persistNow() {
     if (!consent) return;
-    try { storage.write(config.storageKey, consent); } catch (e) { /* ignore */ }
+    const persistedConsent = {
+      ...consent,
+      status: resolveStoredStatus(consent),
+      categories: ensureCategories(consent.categories)
+    };
+    try { storage.write(config.storageKey, persistedConsent); } catch (e) { /* ignore */ }
     if (cookieWriteTimeout) clearTimeout(cookieWriteTimeout);
     cookieWriteTimeout = setTimeout(() => {
       try {
-        const cookieVal = encodeCookie(consent.categories, config.revision);
+        const cookieVal = encodeCookie(persistedConsent.categories, config.revision);
         const opts = { maxAge: 31536000, path: '/', sameSite: 'Lax', secure: location.protocol === 'https:' };
         writeCookie(config.cookieName, cookieVal, opts);
       } catch (e) { /* ignore */ }
@@ -170,46 +196,26 @@ export default function createManager() {
     config = { ...config, ...userConfig };
     // hydrate
     const stored = loadFromStorage();
-    let hasStoredConsent = false;
+    let consentState = 'none';
     if (stored) {
-      hasStoredConsent = true;
+      const hydrated = hydrateStoredConsent(stored);
       // If revision changed, reset stored consent
-      if (stored.revision && config.revision && stored.revision !== config.revision) {
-        const old = { ...stored };
+      if (hydrated && hydrated.revision && config.revision && hydrated.revision !== config.revision) {
+        const old = { ...hydrated };
         try { storage.remove(config.storageKey); } catch (e) {}
         try { removeCookie(config.cookieName, { path: '/' }); } catch (e) {}
         consent = getDefaultConsent(config);
-        hasStoredConsent = false;
+        consentState = 'none';
         // centralized notification about revision reset
         try { notifyChange(old, 'revision', 'api'); } catch (e) { /* ignore */ }
       } else {
-        consent = { ...stored, categories: ensureCategories(stored.categories) };
+        consent = hydrated || getDefaultConsent(config);
+        consentState = resolveConsentState();
       }
     } else {
-      // try to infer from cookie if present (compact), but still show banner to get full consent
-      const cookieVal = readCookie(config.cookieName);
-      if (!stored && cookieVal) {
-        const parsed = decodeCookie(cookieVal);
-        const inferredCats = parsed && parsed.categories ? parsed.categories : {};
-        consent = {
-          version: 1,
-          categories: ensureCategories(inferredCats),
-          locale: config.locale,
-          revision: config.revision,
-          timestamp: new Date().toISOString()
-        };
-        hasStoredConsent = Boolean(parsed && parsed.categories);
-      } else {
-        consent = {
-          version: 1,
-          categories: ensureCategories({}),
-          locale: config.locale,
-          revision: config.revision,
-          timestamp: new Date().toISOString()
-        };
-      }
+      consent = getDefaultConsent(config);
     }
-    writeUserType(resolveUserType(hasStoredConsent));
+    writeUserType(resolveUserType(consentState));
 
     // Create UI instance lazily
     widget = createWidget({
@@ -227,9 +233,7 @@ export default function createManager() {
       try { config.onInit(initialConsent); } catch (e) { console.error(e); }
     }
 
-    // Only saved consent suppresses the banner. First-time visitors must see it
-    // on every load until they make an explicit choice.
-    const shouldShowBanner = !hasStoredConsent;
+    const shouldShowBanner = consentState === 'none' || consentState === 'rejected';
     if (shouldShowBanner && widget) {
       // Defer UI rendering to idle time
       if (typeof window.requestIdleCallback === 'function') {
@@ -265,8 +269,9 @@ export default function createManager() {
   function _updateCategories(newCats, method = 'savePreferences') {
     const old = JSON.parse(JSON.stringify(consent));
     consent.categories = ensureCategories({ ...consent.categories, ...newCats });
+    consent.status = resolveStoredStatus(consent);
     consent.timestamp = new Date().toISOString();
-    writeUserType(resolveUserType(true));
+    writeUserType(resolveUserType(resolveConsentState()));
     persistNow();
     notifyChange(old, method, 'api');
     return toPublicConsent(consent);
@@ -315,6 +320,7 @@ export default function createManager() {
     const old = JSON.parse(JSON.stringify(consent));
     consent = {
       version: 1,
+      status: 'none',
       categories: ensureCategories({}),
       locale: config.locale,
       revision: config.revision,

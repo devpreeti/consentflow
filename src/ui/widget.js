@@ -170,17 +170,17 @@ export default function createWidget(api, config) {
       ? `We use cookies to improve your experience with ${config.companyName}.`
       : 'We use cookies to improve your experience and measure site usage.';
 
-    if (userType === 'returning') {
-      bannerEl.classList.add('cf-banner-minimal');
-      titleText = getLabel('returningTitle', "You're in control. Update your privacy settings anytime.");
-      messageText = '';
-      actions.appendChild(createElement('button', { class: 'cf-btn secondary', type: 'button', 'data-action': 'customize' }, [getLabel('managePreferences', 'Manage Preferences')]));
-    } else if (userType === 'rejected') {
+    if (userType === 'rejected') {
       bannerEl.classList.add('cf-banner-soft');
       titleText = getLabel('rejectedTitle', 'We respect your choice.');
       messageText = getLabel('rejectedMessage', 'Enable analytics for a better experience?');
       actions.appendChild(createElement('button', { class: 'cf-btn secondary', type: 'button', 'data-action': 'customize' }, [getLabel('managePreferences', 'Manage Preferences')]));
       actions.appendChild(createElement('button', { class: 'cf-btn primary', type: 'button', 'data-action': 'accept' }, [getLabel('enableAnalytics', 'Enable Analytics')]));
+    } else if (userType === 'returning') {
+      bannerEl.classList.add('cf-banner-minimal');
+      titleText = getLabel('returningTitle', "You're in control. Update your privacy settings anytime.");
+      messageText = '';
+      actions.appendChild(createElement('button', { class: 'cf-btn secondary', type: 'button', 'data-action': 'customize' }, [getLabel('managePreferences', 'Manage Preferences')]));
     } else {
       titleText = getLabel('bannerTitle', titleText);
       messageText = getLabel('bannerMessage', messageText);
@@ -351,12 +351,16 @@ export default function createWidget(api, config) {
       const analytics = modalOverlay && modalOverlay.querySelector('[data-category="analytics"]');
       const marketing = modalOverlay && modalOverlay.querySelector('[data-category="marketing"]');
 
-      api.savePreferences({
+      const updatedConsent = api.savePreferences({
         analytics: Boolean(analytics && analytics.checked),
         marketing: Boolean(marketing && marketing.checked)
       });
       closeModal();
-      hideBanner();
+      if (updatedConsent && updatedConsent.status === 'rejected') {
+        api.showBanner();
+      } else {
+        hideBanner();
+      }
       if (typeof console !== 'undefined' && console.log) console.log('Consent saved');
       return;
     }
@@ -438,14 +442,27 @@ export default function createWidget(api, config) {
   }
 
   function showBanner() {
+    if (typeof console !== 'undefined' && console.log) {
+      console.log('ConsentFlow showBanner called', { userType: getUserType() });
+    }
+
     ensureMounted();
+
+    if (banner && !banner.isConnected) {
+      banner = null;
+    }
+
     if (banner && banner.parentNode) {
       banner.parentNode.removeChild(banner);
       banner = null;
     }
+
     if (!banner) {
       banner = buildBanner();
       root.appendChild(banner);
+      if (typeof console !== 'undefined' && console.log) {
+        console.log('ConsentFlow banner inserted into DOM', { userType: getUserType() });
+      }
     }
     if (bannerHideTimeout) {
       clearTimeout(bannerHideTimeout);
