@@ -139,7 +139,7 @@ export default function createWidget(api, config) {
   }
 
   function renderFloatingButton() {
-    const shouldShow = getUserType() === 'returning';
+    const shouldShow = getUserType() !== 'first-time';
     if (!shouldShow) {
       if (privacyButton && privacyButton.parentNode) {
         privacyButton.parentNode.removeChild(privacyButton);

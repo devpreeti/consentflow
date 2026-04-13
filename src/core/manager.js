@@ -23,7 +23,6 @@ const DEFAULTS = {
   onChange: null,
   onConsentChange: null
 };
-const USER_TYPE_KEY = 'consentflow_user_type';
 
 function ensureCategories(obj) {
   const out = {};
@@ -80,11 +79,6 @@ export default function createManager() {
 
   function writeUserType(type) {
     userType = type;
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.setItem(USER_TYPE_KEY, type);
-      }
-    } catch (e) { /* ignore */ }
   }
 
   function resolveUserType(hasStoredConsent) {
@@ -176,16 +170,16 @@ export default function createManager() {
     config = { ...config, ...userConfig };
     // hydrate
     const stored = loadFromStorage();
-    const hasStoredConsent = Boolean(stored);
+    let hasStoredConsent = false;
     if (stored) {
+      hasStoredConsent = true;
       // If revision changed, reset stored consent
       if (stored.revision && config.revision && stored.revision !== config.revision) {
         const old = { ...stored };
         try { storage.remove(config.storageKey); } catch (e) {}
         try { removeCookie(config.cookieName, { path: '/' }); } catch (e) {}
         consent = getDefaultConsent(config);
-        // persist the reset default (so cookie/localStorage are consistent)
-        persistNow();
+        hasStoredConsent = false;
         // centralized notification about revision reset
         try { notifyChange(old, 'revision', 'api'); } catch (e) { /* ignore */ }
       } else {
@@ -204,6 +198,7 @@ export default function createManager() {
           revision: config.revision,
           timestamp: new Date().toISOString()
         };
+        hasStoredConsent = Boolean(parsed && parsed.categories);
       } else {
         consent = {
           version: 1,
@@ -215,8 +210,6 @@ export default function createManager() {
       }
     }
     writeUserType(resolveUserType(hasStoredConsent));
-    // Ensure cookie/localStorage are synced to current in-memory consent
-    persistNow();
 
     // Create UI instance lazily
     widget = createWidget({
@@ -234,10 +227,9 @@ export default function createManager() {
       try { config.onInit(initialConsent); } catch (e) { console.error(e); }
     }
 
-    // Show the banner only when it adds value:
-    // first-time users need the full prompt, rejected users get a softer re-entry,
-    // returning accepted users are not interrupted again.
-    const shouldShowBanner = userType === 'first-time' || userType === 'rejected';
+    // Only saved consent suppresses the banner. First-time visitors must see it
+    // on every load until they make an explicit choice.
+    const shouldShowBanner = !hasStoredConsent;
     if (shouldShowBanner && widget) {
       // Defer UI rendering to idle time
       if (typeof window.requestIdleCallback === 'function') {
