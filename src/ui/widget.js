@@ -1,5 +1,5 @@
 import { translations } from '../i18n/translations.js';
-import { getLang } from '../core/manager.js';
+import { getLang } from '../i18n/context.js';
 
 function createElement(tag, attrs = {}, children = []) {
   const el = document.createElement(tag);
@@ -32,7 +32,11 @@ export default function createWidget(api, config) {
 
   function t(key) {
     const lang = getLang();
-    return translations[lang]?.[key] || translations.en[key] || key;
+    return (
+      translations[lang]?.[key] ??
+      translations.en?.[key] ??
+      key
+    );
   }
 
   function formatText(key, values = {}) {

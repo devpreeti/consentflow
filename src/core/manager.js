@@ -1,14 +1,9 @@
 import createEmitter from '../lib/events.js';
 import * as storage from '../adapter/storage.js';
 import { encodeCookie, writeCookie, removeCookie, CATEGORIES } from '../adapter/cookie.js';
+import { setLang } from '../i18n/context.js';
 import createWidget from '../ui/widget.js';
 import { activateScriptsForCategories } from '../lib/activator.js';
-
-let currentLang = 'en';
-
-export function getLang() {
-  return currentLang;
-}
 
 const DEFAULTS = {
   lang: 'en',
@@ -201,7 +196,7 @@ export default function createManager() {
 
   function init(userConfig = {}) {
     config = { ...config, ...userConfig };
-    currentLang = config.lang || 'en';
+    setLang(config.lang);
     // hydrate
     const stored = loadFromStorage();
     let consentState = 'none';
