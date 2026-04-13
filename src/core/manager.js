@@ -4,7 +4,14 @@ import { encodeCookie, writeCookie, removeCookie, CATEGORIES } from '../adapter/
 import createWidget from '../ui/widget.js';
 import { activateScriptsForCategories } from '../lib/activator.js';
 
+let currentLang = 'en';
+
+export function getLang() {
+  return currentLang;
+}
+
 const DEFAULTS = {
+  lang: 'en',
   locale: 'en',
   storageKey: 'consentflow_v1',
   cookieName: 'cf_flags',
@@ -194,6 +201,7 @@ export default function createManager() {
 
   function init(userConfig = {}) {
     config = { ...config, ...userConfig };
+    currentLang = config.lang || 'en';
     // hydrate
     const stored = loadFromStorage();
     let consentState = 'none';

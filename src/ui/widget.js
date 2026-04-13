@@ -1,3 +1,6 @@
+import { translations } from '../i18n/translations.js';
+import { getLang } from '../core/manager.js';
+
 function createElement(tag, attrs = {}, children = []) {
   const el = document.createElement(tag);
   Object.keys(attrs).forEach((key) => {
@@ -26,6 +29,17 @@ export default function createWidget(api, config) {
   let previousBodyOverflow = '';
   let previouslyFocusedElement = null;
   let bannerHideTimeout = null;
+
+  function t(key) {
+    const lang = getLang();
+    return translations[lang]?.[key] || translations.en[key] || key;
+  }
+
+  function formatText(key, values = {}) {
+    return Object.keys(values).reduce((text, placeholder) => {
+      return text.replace(new RegExp(`\\{${placeholder}\\}`, 'g'), values[placeholder]);
+    }, t(key));
+  }
 
   function getTheme() {
     return config && config.theme === 'dark' ? 'dark' : 'light';
@@ -155,38 +169,38 @@ export default function createWidget(api, config) {
       class: 'cf-privacy-btn',
       type: 'button',
       'data-action': 'floating-preferences',
-      'aria-label': 'Privacy'
-    }, [getLabel('privacyButton', '🛡️ Privacy')]);
+      'aria-label': t('privacyAriaLabel')
+    }, [getLabel('privacyButton', t('privacyButton'))]);
     root.appendChild(privacyButton);
   }
 
   function buildBanner() {
-    const bannerEl = createElement('div', { id: 'consentflow-banner', class: 'cf-banner', role: 'dialog', 'aria-live': 'polite', 'aria-label': 'Cookie consent banner' });
+    const bannerEl = createElement('div', { id: 'consentflow-banner', class: 'cf-banner', role: 'dialog', 'aria-live': 'polite', 'aria-label': t('bannerAriaLabel') });
     const copy = createElement('div', { class: 'cf-copy' });
     const actions = createElement('div', { class: 'cf-actions' });
     const userType = getUserType();
-    let titleText = 'Privacy choices';
+    let titleText = t('title');
     let messageText = config && config.companyName
-      ? `We use cookies to improve your experience with ${config.companyName}.`
-      : 'We use cookies to improve your experience and measure site usage.';
+      ? formatText('descriptionWithCompany', { companyName: config.companyName })
+      : t('description');
 
     if (userType === 'rejected') {
       bannerEl.classList.add('cf-banner-soft');
-      titleText = getLabel('rejectedTitle', 'We respect your choice.');
-      messageText = getLabel('rejectedMessage', 'Enable analytics for a better experience?');
-      actions.appendChild(createElement('button', { class: 'cf-btn secondary', type: 'button', 'data-action': 'customize' }, [getLabel('managePreferences', 'Manage Preferences')]));
-      actions.appendChild(createElement('button', { class: 'cf-btn primary', type: 'button', 'data-action': 'accept' }, [getLabel('enableAnalytics', 'Enable Analytics')]));
+      titleText = getLabel('rejectedTitle', t('reconsiderTitle'));
+      messageText = getLabel('rejectedMessage', t('reconsiderDescription'));
+      actions.appendChild(createElement('button', { class: 'cf-btn secondary', type: 'button', 'data-action': 'customize' }, [getLabel('managePreferences', t('managePreferences'))]));
+      actions.appendChild(createElement('button', { class: 'cf-btn primary', type: 'button', 'data-action': 'accept' }, [getLabel('enableAnalytics', t('enableAnalytics'))]));
     } else if (userType === 'returning') {
       bannerEl.classList.add('cf-banner-minimal');
-      titleText = getLabel('returningTitle', "You're in control. Update your privacy settings anytime.");
+      titleText = getLabel('returningTitle', t('returningTitle'));
       messageText = '';
-      actions.appendChild(createElement('button', { class: 'cf-btn secondary', type: 'button', 'data-action': 'customize' }, [getLabel('managePreferences', 'Manage Preferences')]));
+      actions.appendChild(createElement('button', { class: 'cf-btn secondary', type: 'button', 'data-action': 'customize' }, [getLabel('managePreferences', t('managePreferences'))]));
     } else {
       titleText = getLabel('bannerTitle', titleText);
       messageText = getLabel('bannerMessage', messageText);
-      actions.appendChild(createElement('button', { class: 'cf-btn secondary', type: 'button', 'data-action': 'customize' }, [getLabel('customize', 'Customize')]));
-      actions.appendChild(createElement('button', { class: 'cf-btn', type: 'button', 'data-action': 'reject' }, [getLabel('rejectAll', 'Reject All')]));
-      actions.appendChild(createElement('button', { class: 'cf-btn primary', type: 'button', 'data-action': 'accept' }, [getLabel('acceptAll', 'Accept All')]));
+      actions.appendChild(createElement('button', { class: 'cf-btn secondary', type: 'button', 'data-action': 'customize' }, [getLabel('customize', t('customize'))]));
+      actions.appendChild(createElement('button', { class: 'cf-btn', type: 'button', 'data-action': 'reject' }, [getLabel('rejectAll', t('rejectAll'))]));
+      actions.appendChild(createElement('button', { class: 'cf-btn primary', type: 'button', 'data-action': 'accept' }, [getLabel('acceptAll', t('acceptAll'))]));
     }
 
     copy.appendChild(createElement('p', { class: 'cf-title', text: titleText }));
@@ -235,37 +249,37 @@ export default function createWidget(api, config) {
     const headCopy = createElement('div');
     const actions = createElement('div', { class: 'cf-modal-actions' });
 
-    headCopy.appendChild(createElement('h2', { class: 'cf-modal-title', id: 'cf-modal-title', text: getLabel('modalTitle', 'Privacy Preferences') }));
-    headCopy.appendChild(createElement('p', { class: 'cf-modal-desc', id: 'cf-modal-desc', text: getLabel('modalDescription', 'Choose which cookies you allow') }));
+    headCopy.appendChild(createElement('h2', { class: 'cf-modal-title', id: 'cf-modal-title', text: getLabel('modalTitle', t('preferencesTitle')) }));
+    headCopy.appendChild(createElement('p', { class: 'cf-modal-desc', id: 'cf-modal-desc', text: getLabel('modalDescription', t('preferencesDescription')) }));
 
     head.appendChild(headCopy);
     head.appendChild(createElement('button', {
       class: 'cf-close',
       type: 'button',
       'data-action': 'close-modal',
-      'aria-label': getLabel('closeLabel', 'Close preferences')
+      'aria-label': getLabel('closeLabel', t('closePreferences'))
     }, ['×']));
 
     const groups = createElement('div', { class: 'cf-groups' });
     groups.appendChild(buildCategoryRow({
       key: 'necessary',
-      title: getLabel('necessaryTitle', 'Necessary'),
-      description: getLabel('necessaryDescription', 'Required for core site functionality. These cookies stay enabled.'),
+      title: getLabel('necessaryTitle', t('necessary')),
+      description: getLabel('necessaryDescription', t('necessaryDescription')),
       checked: true,
       disabled: true
     }));
     groups.appendChild(buildCategoryRow({
       key: 'analytics',
-      title: getLabel('analyticsTitle', 'Analytics'),
-      description: getLabel('analyticsDescription', 'Helps us understand usage and improve performance.')
+      title: getLabel('analyticsTitle', t('analytics')),
+      description: getLabel('analyticsDescription', t('analyticsDescription'))
     }));
     groups.appendChild(buildCategoryRow({
       key: 'marketing',
-      title: getLabel('marketingTitle', 'Marketing'),
-      description: getLabel('marketingDescription', 'Allows campaign measurement and personalized promotions.')
+      title: getLabel('marketingTitle', t('marketing')),
+      description: getLabel('marketingDescription', t('marketingDescription'))
     }));
 
-    actions.appendChild(createElement('button', { class: 'cf-btn primary', type: 'button', 'data-action': 'save' }, [getLabel('savePreferences', 'Save Preferences')]));
+    actions.appendChild(createElement('button', { class: 'cf-btn primary', type: 'button', 'data-action': 'save' }, [getLabel('savePreferences', t('savePreferences'))]));
 
     modal.appendChild(head);
     modal.appendChild(groups);
