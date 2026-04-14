@@ -70,6 +70,9 @@ const api = {
   // Open the preferences modal.
   openPreferences: (...a) => safeCall('openPreferences', ...a),
 
+  // Internal UI action bridge used by the demo to reuse widget handlers.
+  _triggerUiAction: (...a) => safeCall('_triggerUiAction', ...a),
+
   // Deprecated alias kept for backward compatibility. Use openPreferences().
   open: (...a) => safeCall('open', ...a),
 

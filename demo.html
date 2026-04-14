@@ -350,6 +350,10 @@
     }
 
     function triggerConsentAction(action, fallback) {
+      if (safeCall('_triggerUiAction', action)) {
+        return;
+      }
+
       var consentRoot = document.querySelector('[data-consentflow]');
 
       if (consentRoot) {

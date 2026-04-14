@@ -334,19 +334,15 @@ export default function createWidget(api, config) {
     }, 300);
   }
 
-  function onRootClick(event) {
-    const actionEl = event.target.closest && event.target.closest('[data-action]');
-    if (!actionEl || !root || !root.contains(actionEl)) return;
-
-    const action = actionEl.getAttribute('data-action');
+  function handleAction(action) {
     if (action === 'customize') {
       openModal();
-      return;
+      return true;
     }
 
     if (action === 'floating-preferences') {
       openModal();
-      return;
+      return true;
     }
 
     if (action === 'accept') {
@@ -354,7 +350,7 @@ export default function createWidget(api, config) {
       closeModal();
       hideBanner();
       if (typeof console !== 'undefined' && console.log) console.log('Consent saved');
-      return;
+      return true;
     }
 
     if (action === 'reject') {
@@ -362,7 +358,7 @@ export default function createWidget(api, config) {
       closeModal();
       hideBanner();
       if (typeof console !== 'undefined' && console.log) console.log('Consent saved');
-      return;
+      return true;
     }
 
     if (action === 'save') {
@@ -380,12 +376,23 @@ export default function createWidget(api, config) {
         hideBanner();
       }
       if (typeof console !== 'undefined' && console.log) console.log('Consent saved');
-      return;
+      return true;
     }
 
     if (action === 'close-modal') {
       closeModal();
+      return true;
     }
+
+    return false;
+  }
+
+  function onRootClick(event) {
+    const actionEl = event.target.closest && event.target.closest('[data-action]');
+    if (!actionEl || !root || !root.contains(actionEl)) return;
+
+    const action = actionEl.getAttribute('data-action');
+    handleAction(action);
   }
 
   function onDocumentClick(event) {
@@ -512,6 +519,7 @@ export default function createWidget(api, config) {
     open: openModal,
     close: closeModal,
     showBanner,
+    triggerAction: handleAction,
     destroy
   };
 }

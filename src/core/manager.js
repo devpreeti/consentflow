@@ -268,6 +268,10 @@ export default function createManager() {
 
   function close() { widget && widget.close(); }
   function showBanner() { widget && widget.showBanner(); }
+  function triggerUiAction(action) {
+    if (!widget || typeof widget.triggerAction !== 'function') return false;
+    return widget.triggerAction(action);
+  }
 
   function _updateCategories(newCats, method = 'savePreferences') {
     const old = JSON.parse(JSON.stringify(consent));
@@ -361,6 +365,8 @@ export default function createManager() {
     reset,
     // Opens the preferences modal.
     openPreferences,
+    // Internal UI action bridge used by the demo to reuse widget handlers.
+    _triggerUiAction: triggerUiAction,
 
     // Backward-compatible aliases / advanced helpers.
     open,
