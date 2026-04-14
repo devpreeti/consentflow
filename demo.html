@@ -349,10 +349,29 @@
       showActionMessage('Demo reset');
     }
 
+    function triggerConsentAction(action, fallback) {
+      var consentRoot = document.querySelector('[data-consentflow]');
+
+      if (consentRoot) {
+        var proxyButton = document.createElement('button');
+        proxyButton.type = 'button';
+        proxyButton.setAttribute('data-action', action);
+        proxyButton.hidden = true;
+        consentRoot.appendChild(proxyButton);
+        proxyButton.click();
+        proxyButton.remove();
+        return;
+      }
+
+      if (typeof fallback === 'function') {
+        fallback();
+      }
+    }
+
     // demo controls
-    document.getElementById('acceptAll').addEventListener('click', () => safeCall('acceptAll'));
-    document.getElementById('rejectAll').addEventListener('click', () => safeCall('rejectAll'));
-    document.getElementById('openPrefs').addEventListener('click', () => safeCall('openPreferences'));
+    document.getElementById('acceptAll').addEventListener('click', () => triggerConsentAction('accept', () => safeCall('acceptAll')));
+    document.getElementById('rejectAll').addEventListener('click', () => triggerConsentAction('reject', () => safeCall('rejectAll')));
+    document.getElementById('openPrefs').addEventListener('click', () => triggerConsentAction('customize', () => safeCall('openPreferences')));
     document.getElementById('activateAnalytics').addEventListener('click', handleActivateAnalytics);
     document.getElementById('resetConsent').addEventListener('click', handleResetConsent);
 
@@ -363,9 +382,9 @@
     });
 
     // top controls
-    document.getElementById('acceptAllTop').addEventListener('click', () => safeCall('acceptAll'));
-    document.getElementById('rejectAllTop').addEventListener('click', () => safeCall('rejectAll'));
-    document.getElementById('openPrefsTop').addEventListener('click', () => safeCall('openPreferences'));
+    document.getElementById('acceptAllTop').addEventListener('click', () => triggerConsentAction('accept', () => safeCall('acceptAll')));
+    document.getElementById('rejectAllTop').addEventListener('click', () => triggerConsentAction('reject', () => safeCall('rejectAll')));
+    document.getElementById('openPrefsTop').addEventListener('click', () => triggerConsentAction('customize', () => safeCall('openPreferences')));
 
     // Try Demo scroll
     var tryBtn = document.getElementById('see-action-btn');
